@@ -2283,6 +2283,27 @@ exclude_path() {
   local rel=$1 EXCL
   EXCL=$(git -C "$WT" rev-parse --git-path info/exclude 2>/dev/null || true)
   [ -n "$EXCL" ] || return 0
+  # --git-path answers relative to the repo it was asked about, and returns a
+  # bare .git/info/exclude for a plain checkout (a linked worktree, the usual
+  # lane shape, answers absolute). The writes below run in the caller's cwd,
+  # which fm-spawn never moves to $WT - so anchor it or a plain-checkout lane
+  # would append to whatever repo the launcher happened to be started from.
+  case "$EXCL" in
+    /*) ;;
+    *) EXCL="$WT/$EXCL" ;;
+  esac
+  # info/exclude governs UNTRACKED paths only. When the project tracks this
+  # path, the per-lane write above lands as a tracked modification instead:
+  # teardown's dirty check and the no-mistakes clean-tree gate both trip on
+  # every run here, and the harness wiring can ride into a commit. Excluding it
+  # would do nothing at all, so warn once with the remedy rather than fail
+  # silently - only the project can untrack the file. Non-fatal: the wiring is
+  # already armed and a dirty tree beats an unmonitored lane.
+  if git -C "$WT" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1; then
+    echo "warning: $rel is tracked in this project, so .git/info/exclude cannot hide firstmate's per-lane write to it" >&2
+    echo "warning: every agent run here will show a dirty tree until the project untracks it: git rm --cached $rel && echo '$rel' >> .gitignore" >&2
+    return 0
+  fi
   mkdir -p "$(dirname "$EXCL")"
   grep -qxF "$rel" "$EXCL" 2>/dev/null || echo "$rel" >> "$EXCL"
 }
