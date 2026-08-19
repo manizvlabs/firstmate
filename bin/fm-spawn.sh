@@ -113,6 +113,10 @@
 #   a failed or inconclusive probe omits it so older Pi versions remain launchable.
 #   A missing selected executable refuses before endpoint creation, and pi-signed
 #   never falls back to pi.
+#   config/crew-model and config/crew-effort are standing pins for crewmate and
+#   scout spawns: one value per file, applied when no explicit --model/--effort
+#   and no explicit harness/raw launch command was given. config/crew-effort
+#   accepts low|medium|high|xhigh|max; an unrecognised value warns and is ignored.
 #   config/secondmate-harness may also carry an optional model and effort as extra
 #   whitespace-separated tokens ("<harness> [<model>] [<effort>]"). For a
 #   --secondmate spawn, those tokens apply only when this spawn also resolves its
@@ -1275,6 +1279,35 @@ if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
       case "$SM_EFFORT" in
         low|medium|high|xhigh|max) EFFORT=$SM_EFFORT ;;
         *) echo "warning: config/secondmate-harness effort token '$SM_EFFORT' is not one of low, medium, high, xhigh, max; ignoring" >&2 ;;
+      esac
+    fi
+  fi
+fi
+
+# config/crew-model and config/crew-effort are standing pins for CREWMATE and
+# SCOUT launches, the same one-value-per-file shape as config/crew-harness. They
+# exist because effort was previously settable only per-spawn: omit --effort and
+# the crewmate inherits whatever reasoning level the primary session happens to
+# be on, which is the expensive default and is invisible at the call site. A
+# standing pin makes the fleet's token profile a property of the home rather
+# than of whoever typed the last spawn.
+#
+# Precedence mirrors the secondmate block above: an explicit --model/--effort
+# still wins, and an explicit harness or raw launch command (ARG3) opts out
+# entirely, so a consciously chosen one-off runtime starts from clean defaults.
+# Resolving here rather than at parse time makes the pin durable across
+# respawns, exactly as the secondmate tokens are.
+if [ "$KIND" != secondmate ] && [ -z "$ARG3" ]; then
+  if [ "$MODEL_SET" -eq 0 ]; then
+    CREW_MODEL=$("$SCRIPT_DIR/fm-harness.sh" crew-model)
+    [ -z "$CREW_MODEL" ] || MODEL=$CREW_MODEL
+  fi
+  if [ "$EFFORT_SET" -eq 0 ]; then
+    CREW_EFFORT=$("$SCRIPT_DIR/fm-harness.sh" crew-effort)
+    if [ -n "$CREW_EFFORT" ]; then
+      case "$CREW_EFFORT" in
+        low|medium|high|xhigh|max) EFFORT=$CREW_EFFORT ;;
+        *) echo "warning: config/crew-effort value '$CREW_EFFORT' is not one of low, medium, high, xhigh, max; ignoring" >&2 ;;
       esac
     fi
   fi

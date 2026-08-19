@@ -9,6 +9,8 @@
 #                                        defers to the crew resolution, so an unset
 #                                        secondmate-harness behaves exactly as the crew
 #                                        harness did before this knob existed.
+#        fm-harness.sh crew-model      print config/crew-model, or empty when absent
+#        fm-harness.sh crew-effort     print config/crew-effort, or empty when absent
 #        fm-harness.sh secondmate-model    print the optional MODEL token from
 #                                        config/secondmate-harness, or empty when absent.
 #        fm-harness.sh secondmate-effort   print the optional EFFORT token from
@@ -122,6 +124,25 @@ resolve_crew() {
   if [ -z "$crew" ] || [ "$crew" = "default" ]; then detect_own; else echo "$crew"; fi
 }
 
+# Print the single token held in config/<name>, or nothing when the file is
+# absent, empty, or holds only whitespace. Same one-value-per-file shape as
+# config/crew-harness, deliberately kept separate from it so that file stays a
+# bare adapter name.
+crew_config_token() {
+  local v=
+  [ -f "$CONFIG/$1" ] && v=$(tr -d '[:space:]' < "$CONFIG/$1" || true)
+  [ -n "$v" ] || return 0
+  printf '%s\n' "$v"
+}
+
+# Print the standing crewmate model pin (config/crew-model), or nothing.
+resolve_crew_model() { crew_config_token crew-model; }
+
+# Print the standing crewmate reasoning-effort pin (config/crew-effort), or
+# nothing. Validation of the value belongs to the caller that builds the launch
+# flag, so an unreadable pin degrades to "unset" rather than to a failed spawn.
+resolve_crew_effort() { crew_config_token crew-effort; }
+
 # Print the first non-empty, non-comment line of config/secondmate-harness
 # (leading/trailing whitespace trimmed), or nothing when the file is absent or
 # holds only blank/comment lines.
@@ -188,6 +209,8 @@ resolve_secondmate_effort() {
 
 case "${1:-}" in
   crew) resolve_crew ;;
+  crew-model) resolve_crew_model ;;
+  crew-effort) resolve_crew_effort ;;
   secondmate) resolve_secondmate ;;
   secondmate-model) resolve_secondmate_model ;;
   secondmate-effort) resolve_secondmate_effort ;;

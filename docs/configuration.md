@@ -232,6 +232,11 @@ The first non-empty, non-comment line is parsed as `<harness> [<model>] [<effort
 A bare `<harness>` preserves the previous behavior: harness only, with no model or effort launch flag.
 When the harness token is absent or `default`, secondmate launch falls back through `config/crew-harness` and then the primary's own harness, and no model or effort is read from that file.
 `fm-harness.sh secondmate-model` and `fm-harness.sh secondmate-effort` expose only the optional tokens from `config/secondmate-harness`; `config/crew-harness` remains a bare adapter-name file.
+`config/crew-model` and `config/crew-effort` are separate local, gitignored one-value files that pin the model and reasoning effort for crewmate and scout launches, read by `fm-harness.sh crew-model` and `fm-harness.sh crew-effort`.
+They exist because effort was otherwise settable per-spawn only: omit `--effort` and the crewmate inherits whatever level the primary session is on, which is invisible at the call site and is the expensive default.
+`config/crew-effort` accepts `low`, `medium`, `high`, `xhigh`, or `max`; any other value warns and is ignored rather than reaching the launch flag.
+Both pins are skipped for a `--secondmate` spawn, which has its own tokens on `config/secondmate-harness`, and are skipped when an explicit harness or raw launch command was given, so a consciously chosen one-off runtime still starts from clean defaults.
+An explicit `--model` or `--effort` overrides either pin for that spawn only, and resolving them on every spawn makes them durable across respawns.
 Changing this pin affects the next secondmate spawn or control-plane relaunch; the relaunch profile rules are owned by [`docs/agent-control.md`](agent-control.md#transactional-relaunch).
 An explicit harness argument to `fm-spawn.sh` still overrides either config file for that spawn only.
 An explicit `--model` or `--effort` overrides the matching token from `config/secondmate-harness`; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
