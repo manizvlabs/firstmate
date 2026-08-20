@@ -16,6 +16,9 @@
 #   loud one-line deviation notice is printed and the spawn continues.
 #   no-mistakes-prod-only is a registry policy rather than a task mode and is
 #   refused as a flag value.
+#   A --mode no-mistakes spawn additionally refuses when the project's no-mistakes
+#   validation workspace has not been trusted, naming the workspace path and the
+#   one-time human trust grant; bin/fm-nm-trust-lib.sh owns that contract.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>]
 #   --relaunch launches a replacement agent for an EXISTING task into that
 #   task's own recorded endpoint and worktree instead of creating either. It is
@@ -254,6 +257,8 @@ SUB_HOME_MARKER=".fm-secondmate-home"
 . "$SCRIPT_DIR/fm-control-lib.sh"
 # shellcheck source=bin/fm-gate-refuse-lib.sh
 . "$SCRIPT_DIR/fm-gate-refuse-lib.sh"
+# shellcheck source=bin/fm-nm-trust-lib.sh
+. "$SCRIPT_DIR/fm-nm-trust-lib.sh"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-cursor-lib.sh
@@ -1697,6 +1702,13 @@ if [ "$KIND" = ship ]; then
   elif [ "$BRIEF_MODE" != "$MODE" ]; then
     echo "error: delivery mismatch for $ID: the brief says mode=$BRIEF_MODE but this spawn passed --mode $MODE; correct the flag or re-scaffold the brief so the worker's instructions and the task record agree" >&2
     exit 1
+  fi
+  # A no-mistakes spawn is the last firstmate-owned point before the gate runs,
+  # so refuse here when the project's validation workspace has not been trusted:
+  # otherwise the run fails deep inside the review step with a "findings: none"
+  # outcome that reads like a clean review (see bin/fm-nm-trust-lib.sh).
+  if [ "$MODE" = no-mistakes ]; then
+    fm_nm_trust_refuse_if_untrusted "$PROJ_ABS"
   fi
   # The registry holds the captain's standing posture, so dropping below it is
   # allowed (a current explicit captain instruction wins) but never silent. An
